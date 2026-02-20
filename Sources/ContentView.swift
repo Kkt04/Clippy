@@ -520,6 +520,10 @@ struct OrganizeView: View {
             }
         }
         .background(Color(NSColor.textBackgroundColor))
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            MemoryStatusBar(appState: appState)
+        }
+
     }
 }
 
