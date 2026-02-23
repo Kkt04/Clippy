@@ -45,61 +45,87 @@ swift run Clippy
 ### Using Xcode
 
 1. Open `Package.swift` in Xcode
-2. Select the `FileScannerApp` scheme
+2. Select the `Clippy` scheme
 3. Press ⌘R to build and run
 
 ## Architecture
 
-The system is built on strict separation of concerns with five core subsystems:
+The system is built on strict separation of concerns with a modular architecture:
 
-### 1. Scanner (`FileScanner.swift`)
-- **Responsibility**: Read-only filesystem enumeration
-- **Output**: Immutable `FileDescriptor` snapshots
-- **Guarantees**: Best-effort, never blocks UI, produces evidence not truth
+### Modules
 
-### 2. Planner (`Planner.swift`)
-- **Responsibility**: Pure logic evaluation of files against rules
-- **Output**: Immutable `ActionPlan` containing proposed changes
-- **Guarantees**: Deterministic, conservative conflict resolution, explainable decisions
+#### ClippyCore (Library)
+Pure domain models with no dependencies on other modules.
 
-### 3. Execution Engine (`ExecutionEngine.swift`)
-- **Responsibility**: Performs approved filesystem operations
-- **Output**: Complete `ExecutionLog` of outcomes
-- **Guarantees**: Obeys plan exactly, localized failure handling, never retries aggressively
+- **FileDescriptor** (`FileDescriptor.swift`): Immutable file snapshot
+- **DomainModels** (`DomainModels.swift`): Rules, Plans, Actions, Conditions
 
-### 4. Undo Engine (`UndoEngine.swift`)
-- **Responsibility**: Reverses executed actions using logs
-- **Output**: `UndoLog` recording restoration attempts
-- **Guarantees**: Best-effort restoration, never worsens user state, skips when unsafe
+#### ClippyEngine (Library)
+Business logic engines that depend on ClippyCore.
 
-### 5. Observer (`FileSystemObserver.swift`)
-- **Responsibility**: Passive filesystem event monitoring via FSEvents
-- **Output**: `FileSystemEvent` notifications
-- **Guarantees**: Advisory only, never triggers execution, events are hints not facts
+- **FileScanner**: Read-only filesystem enumeration
+- **Planner**: Pure logic evaluation of files against rules
+- **ExecutionEngine**: Performs approved filesystem operations
+- **UndoEngine**: Reverses executed actions using logs
+- **FileSystemObserver**: Passive filesystem event monitoring via FSEvents
+- **ScanBridge**: Connects Observer events to staleness suggestions
+- **RuleTemplates**: Pre-defined rule templates
 
-### Bridge Components
-
-- **Scan Bridge** (`ScanBridge.swift`): Connects Observer events to staleness suggestions
-- **UI Copy** (`UICopy.swift`): Centralized repository of user-facing strings
+#### Clippy (Executable)
+The application layer combining UI and engines.
 
 ## Project Structure
 
 ```
 Sources/
-├── FileScannerApp.swift        # App entry point
-├── ContentView.swift           # Main UI
-├── DomainModels.swift          # Core data models (Rules, Plans, Actions)
-├── FileDescriptor.swift        # Immutable file snapshot model
-├── FileScanner.swift           # Filesystem enumeration engine
-├── Planner.swift               # Rule evaluation logic
-├── ExecutionEngine.swift       # Filesystem mutation executor
-├── UndoEngine.swift            # Action reversal engine
-├── FileSystemObserver.swift    # FSEvents monitoring
-├── ScanBridge.swift            # Event → Staleness bridge
-└── UICopy.swift                # User-facing text repository
+├── Core/                               # ClippyCore library
+│   ├── DomainModels.swift              # Rules, Plans, Actions, Conditions
+│   └── FileDescriptor.swift            # Immutable file snapshot
+│
+├── Engine/                             # ClippyEngine library
+│   ├── ExecutionEngine.swift           # Filesystem mutation executor
+│   ├── FileScanner.swift              # Filesystem enumeration
+│   ├── FileSystemObserver.swift        # FSEvents monitoring
+│   ├── Planner.swift                  # Rule evaluation logic
+│   ├── RuleTemplates.swift            # Pre-defined rule templates
+│   ├── ScanBridge.swift               # Event → Staleness bridge
+│   └── UndoEngine.swift               # Action reversal
+│
+├── Navigation/                         # UI Components
+│   ├── MainContentView.swift          # Main navigation container
+│   ├── OrganizeView.swift             # Organize tab view
+│   ├── RulesView.swift                # Rules management view
+│   ├── FileThumbnailView.swift        # File thumbnails & previews
+│   └── SidebarTab.swift              # Sidebar navigation
+│
+├── ContentView.swift                  # App state & main UI
+├── FileScannerApp.swift               # App entry point
+├── HistoryManager.swift               # History tracking
+├── SearchManager.swift                # Search functionality
+└── UICopy.swift                       # User-facing strings
 
 docs/
-└── formalSystemContract.md     # Non-negotiable system guarantees
+└── formalSystemContract.md            # Non-negotiable system guarantees
+```
+
+## Module Dependencies
+
+```
+┌─────────────────────────────────────────┐
+│              Clippy (App)               │
+│  - AppState, Views, UI Components      │
+└─────────────────┬───────────────────────┘
+                  │ depends on
+        ┌─────────┴─────────┐
+        ▼                   ▼
+┌───────────────┐   ┌────────────────┐
+│  ClippyCore   │   │  ClippyEngine  │
+│ - Rule        │   │ - FileScanner  │
+│ - ActionPlan  │   │ - Planner      │
+│ - FileDesc    │   │ - Executor     │
+└───────────────┘   │ - UndoEngine   │
+                    │ - Observer     │
+                    └────────────────┘
 ```
 
 ## Workflow
