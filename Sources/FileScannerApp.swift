@@ -4,7 +4,7 @@ import SwiftUI
 struct FileScannerApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainContentView()
         }
     }
 }

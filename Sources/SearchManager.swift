@@ -1,4 +1,5 @@
 import Foundation
+import ClippyCore
 
 // MARK: - Search Types
 

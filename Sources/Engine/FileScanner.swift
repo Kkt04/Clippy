@@ -1,4 +1,5 @@
 import Foundation
+import ClippyCore
 
 /// Result of a file scan operation containing found files and any errors encountered.
 public struct ScanResult: Sendable {
