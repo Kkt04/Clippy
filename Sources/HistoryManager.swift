@@ -210,8 +210,7 @@ public final class HistoryManager: ObservableObject {
         }
     }
     
-    public struct UndoItemResult: Identifiable {
-        public let id = UUID()
+    public struct UndoItemResult {
         public let fileName: String
         public let outcome: UndoOutcome
         public let message: String
