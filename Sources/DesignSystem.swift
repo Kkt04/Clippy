@@ -74,6 +74,7 @@ enum DesignSystem {
         static let md: CGFloat = 10
         static let lg: CGFloat = 14
         static let xl: CGFloat = 18
+        static let full: CGFloat = 9999
     }
 }
 
@@ -206,5 +207,28 @@ struct ModernSearchField: View {
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
                 .stroke(DesignSystem.Colors.border, lineWidth: 1)
         )
+    }
+}
+
+struct ModernFilterChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(DesignSystem.Typography.caption)
+                .padding(.horizontal, DesignSystem.Spacing.md)
+                .padding(.vertical, DesignSystem.Spacing.xs)
+                .background(isSelected ? DesignSystem.Colors.accentBlue : DesignSystem.Colors.backgroundSecondary)
+                .foregroundColor(isSelected ? .white : DesignSystem.Colors.textPrimary)
+                .cornerRadius(DesignSystem.CornerRadius.full)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.full)
+                        .stroke(isSelected ? DesignSystem.Colors.accentBlue : DesignSystem.Colors.border, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
