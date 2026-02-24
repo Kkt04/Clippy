@@ -82,14 +82,19 @@ struct StatBadge: View {
     let label: String
     
     var body: some View {
-        VStack(spacing: 2) {
-            Text(value).font(.title3).fontWeight(.semibold)
-            Text(label).font(.caption2).foregroundColor(.secondary)
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title3)
+                .fontWeight(.semibold)
+                .monospacedDigit()
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(10)
     }
 }
 
@@ -322,39 +327,55 @@ struct PlanPreviewView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(UICopy.Plan.title).font(.headline)
-                        Text(UICopy.Plan.reassurance).font(.caption).foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(UICopy.Plan.title)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        Text(UICopy.Plan.reassurance)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                     }
                     Spacer()
-                    HStack(spacing: 12) {
-                        Button(UICopy.Plan.cancelButton) { appState.actionPlan = nil }
-                            .buttonStyle(.bordered)
-                        Button { executePlan() } label: {
-                            Label(UICopy.Plan.approveButton, systemImage: "checkmark")
-                        }
-                        .buttonStyle(.borderedProminent)
+                    PlanSummaryBadges(plan: plan)
+                }
+                
+                HStack(spacing: 12) {
+                    Button(UICopy.Plan.cancelButton) { appState.actionPlan = nil }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                    Spacer()
+                    Button { executePlan() } label: {
+                        Label(UICopy.Plan.approveButton, systemImage: "checkmark.circle.fill")
+                            .padding(.horizontal, 8)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
+            }
+            .padding(20)
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            Divider()
+            
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(plan.actions) { action in
+                        PlannedActionRowView(action: action)
                     }
                 }
-                PlanSummaryBadges(plan: plan)
+                .padding(16)
             }
-            .padding(16)
-            .background(Color(NSColor.windowBackgroundColor))
-            Divider()
-            List {
-                ForEach(plan.actions) { action in
-                    PlannedActionRowView(action: action)
-                }
-            }
-            .listStyle(.inset)
+            
             HStack {
-                Image(systemName: "info.circle").foregroundColor(.secondary)
-                Text(UICopy.Plan.confidenceHint).font(.caption).foregroundColor(.secondary)
+                Image(systemName: "info.circle.fill").foregroundColor(.blue)
+                Text(UICopy.Plan.confidenceHint)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
                 Spacer()
             }
-            .padding(12)
+            .padding(16)
             .background(Color(NSColor.windowBackgroundColor))
         }
     }
@@ -408,40 +429,124 @@ struct PlannedActionRowView: View {
     let action: PlannedAction
     
     var body: some View {
-        HStack(spacing: 12) {
-            FileThumbnailView(file: action.targetFile, size: 36, showPreviewOnTap: true)
-            actionIcon.frame(width: 28)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(action.targetFile.fileName).fontWeight(.medium)
-                    destinationText
+        HStack(spacing: 16) {
+            FileThumbnailView(file: action.targetFile, size: 44, showPreviewOnTap: true)
+            actionIcon
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(action.targetFile.fileName)
+                        .font(.headline)
+                        .lineLimit(1)
+                    destinationTag
                 }
-                Text(UICopy.Plan.reason(action.reason)).font(.caption).foregroundColor(.secondary)
+                HStack(spacing: 4) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text(UICopy.Plan.reason(action.reason))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
             }
+            
             Spacer()
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(12)
     }
     
     @ViewBuilder
     private var actionIcon: some View {
+        ZStack {
+            Circle()
+                .fill(actionColor.opacity(0.15))
+                .frame(width: 36, height: 36)
+            Image(systemName: actionIconName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(actionColor)
+        }
+    }
+    
+    private var actionColor: Color {
         switch action.actionType {
-        case .move: Image(systemName: "arrow.right.circle.fill").foregroundColor(.blue)
-        case .delete: Image(systemName: "trash.circle.fill").foregroundColor(.orange)
-        case .skip: Image(systemName: "minus.circle.fill").foregroundColor(.secondary)
-        case .copy: Image(systemName: "doc.on.doc.fill").foregroundColor(.green)
-        case .rename: Image(systemName: "pencil.circle.fill").foregroundColor(.purple)
+        case .move: return .blue
+        case .delete: return .orange
+        case .skip: return .secondary
+        case .copy: return .green
+        case .rename: return .purple
+        }
+    }
+    
+    private var actionIconName: String {
+        switch action.actionType {
+        case .move: return "arrow.right"
+        case .delete: return "trash"
+        case .skip: return "minus"
+        case .copy: return "doc.on.doc"
+        case .rename: return "pencil"
         }
     }
     
     @ViewBuilder
-    private var destinationText: some View {
+    private var destinationTag: some View {
         switch action.actionType {
-        case .move(let dest): Text("→ \(dest.lastPathComponent)").foregroundColor(.secondary)
-        case .delete: Text("→ Trash").foregroundColor(.orange)
-        case .skip: Text("(no action)").foregroundColor(.secondary).italic()
-        case .copy(let dest): Text("→ copy to \(dest.lastPathComponent)").foregroundColor(.secondary)
-        case .rename(let newName): Text("→ \(newName)").foregroundColor(.secondary)
+        case .move(let dest):
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.right")
+                    .font(.caption2)
+                Text(dest.lastPathComponent)
+                    .font(.caption)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.blue.opacity(0.1))
+            .foregroundColor(.blue)
+            .cornerRadius(6)
+        case .delete:
+            Text("Trash")
+                .font(.caption)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.orange.opacity(0.1))
+                .foregroundColor(.orange)
+                .cornerRadius(6)
+        case .skip:
+            Text("No action")
+                .font(.caption)
+                .italic()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.1))
+                .foregroundColor(.secondary)
+                .cornerRadius(6)
+        case .copy(let dest):
+            HStack(spacing: 4) {
+                Image(systemName: "doc.on.doc")
+                    .font(.caption2)
+                Text(dest.lastPathComponent)
+                    .font(.caption)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.green.opacity(0.1))
+            .foregroundColor(.green)
+            .cornerRadius(6)
+        case .rename(let newName):
+            HStack(spacing: 4) {
+                Image(systemName: "pencil")
+                    .font(.caption2)
+                Text(newName)
+                    .font(.caption)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.purple.opacity(0.1))
+            .foregroundColor(.purple)
+            .cornerRadius(6)
         }
     }
 }
