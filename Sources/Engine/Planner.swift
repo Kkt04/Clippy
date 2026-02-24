@@ -1,4 +1,5 @@
 import Foundation
+import ClippyCore
 
 /// A pure logic engine that determines actions based on files and rules.
 /// Contains NO side effects, NO I/O, and NO filesystem access.

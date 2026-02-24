@@ -2,6 +2,7 @@ import SwiftUI
 import QuickLookThumbnailing
 import QuickLookUI
 import AppKit
+import ClippyCore
 
 // MARK: - QuickLook Preview Item Wrapper
 

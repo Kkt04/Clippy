@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import ClippyEngine
 
 // MARK: - History Item Model
 
