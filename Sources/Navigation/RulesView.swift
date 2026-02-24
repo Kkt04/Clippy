@@ -65,6 +65,18 @@ struct RulesHeaderView: View {
                 }
                 Spacer()
                 HStack(spacing: 8) {
+                    Button { appState.disableAllRules() } label: {
+                        Label("Disable All", systemImage: "pause.circle")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(appState.rules.isEmpty)
+                    
+                    Button { appState.enableAllRules() } label: {
+                        Label("Enable All", systemImage: "play.circle")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(appState.rules.isEmpty)
+                    
                     Button { showingTemplates = true } label: {
                         Label("Templates", systemImage: "doc.text.magnifyingglass")
                     }

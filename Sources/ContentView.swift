@@ -74,6 +74,38 @@ class AppState: ObservableObject {
         }
     }
     
+    /// Disable all rules
+    func disableAllRules() {
+        for i in 0..<rules.count {
+            rules[i] = Rule(
+                id: rules[i].id,
+                name: rules[i].name,
+                description: rules[i].description,
+                conditions: rules[i].conditions,
+                outcome: rules[i].outcome,
+                isEnabled: false,
+                group: rules[i].group,
+                tags: rules[i].tags
+            )
+        }
+    }
+    
+    /// Enable all rules
+    func enableAllRules() {
+        for i in 0..<rules.count {
+            rules[i] = Rule(
+                id: rules[i].id,
+                name: rules[i].name,
+                description: rules[i].description,
+                conditions: rules[i].conditions,
+                outcome: rules[i].outcome,
+                isEnabled: true,
+                group: rules[i].group,
+                tags: rules[i].tags
+            )
+        }
+    }
+    
     init() {
         // Configure sandbox boundaries for file operations
         let home = NSHomeDirectory()
