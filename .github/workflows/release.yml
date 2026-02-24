@@ -1,8 +1,7 @@
 name: Build and Release
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,9 +15,6 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-
-      - name: Show Swift version
-        run: swift --version
 
       - name: Build release
         run: swift build -c release
@@ -34,16 +30,37 @@ jobs:
           chmod +x build-dmg.sh
           ./build-dmg.sh
 
+      # dmg to latest release
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CHANGES=$(git log $PREVIOUS_TAG..HEAD --oneline --pretty=format:"- %s (%an)" | head -20)
+          else
+            CHANGES=$(git log --oneline --pretty=format:"- %s (%an)" -20)
+          fi
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create or Update the latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Delete existing 'latest' release if it exists
+          gh release delete latest --yes || true
+          # Delete existing 'latest' tag if it exists
+          git push origin :refs/tags/latest || true
+          # Create the release
+          gh release create latest Clippy-*.dmg \
+          --title "Latest Build" \
+          --notes "${{ steps.changelog.outputs.changelog }}" \
+          --generate-notes
+
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: Clippy-DMG
           path: Clippy-*.dmg
-          retention-days: 7
-
-      - name: Upload App artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Clippy-App
-          path: Clippy.app
           retention-days: 7
