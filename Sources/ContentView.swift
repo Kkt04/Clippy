@@ -1415,52 +1415,46 @@ struct StatisticsDashboardView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: DesignSystem.Spacing.xl) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Statistics")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                        .font(DesignSystem.Typography.title1)
+                        .foregroundColor(.primary)
                     
                     Text("Track rule effectiveness and file patterns")
-                        .font(.caption)
+                        .font(DesignSystem.Typography.caption)
                         .foregroundColor(.secondary)
                 }
                 
                 Spacer()
             }
-            .padding(20)
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding(DesignSystem.Spacing.xl)
+            .background(DesignSystem.Colors.backgroundPrimary)
             
             Divider()
             
-            // Stats Content
             ScrollView {
-                VStack(spacing: 20) {
-                    // Summary Cards
+                VStack(spacing: DesignSystem.Spacing.xl) {
                     StatisticsSummaryCards(appState: appState)
                     
                     Divider()
                     
-                    // File Types Breakdown
                     if let scanResult = appState.scanResult {
                         FileTypesChart(files: scanResult.files)
                     }
                     
                     Divider()
                     
-                    // Rule Performance
                     RulePerformanceSection(rules: appState.rules, history: appState.historyManager.sessions)
                     
                     Divider()
                     
-                    // Recent Activity
                     RecentActivitySection(history: appState.historyManager.sessions)
                 }
-                .padding()
+                .padding(DesignSystem.Spacing.xl)
             }
         }
-        .background(Color(NSColor.textBackgroundColor))
+        .background(DesignSystem.Colors.backgroundTertiary)
     }
 }
 
