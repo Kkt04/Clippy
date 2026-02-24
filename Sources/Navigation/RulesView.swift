@@ -6,12 +6,14 @@ struct RulesView: View {
     @ObservedObject var appState: AppState
     @State private var showingAddRule = false
     @State private var editingRule: Rule?
+    @State private var showingTemplates = false
     
     var body: some View {
         VStack(spacing: 0) {
             ModernRulesHeader(
                 appState: appState,
-                showingAddRule: $showingAddRule
+                showingAddRule: $showingAddRule,
+                showingTemplates: $showingTemplates
             )
             
             Divider()
@@ -42,13 +44,16 @@ struct RulesView: View {
         .sheet(item: $editingRule) { rule in
             RuleEditorView(appState: appState, existingRule: rule)
         }
+        .sheet(isPresented: $showingTemplates) {
+            TemplateBrowserView(appState: appState)
+        }
     }
 }
 
 struct ModernRulesHeader: View {
     @ObservedObject var appState: AppState
     @Binding var showingAddRule: Bool
-    @State private var showingTemplates = false
+    @Binding var showingTemplates: Bool
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
