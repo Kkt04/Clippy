@@ -540,41 +540,45 @@ struct HistoryHeaderView: View {
     @Binding var showClearConfirmation: Bool
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(UICopy.History.title)
-                    .font(.title2)
-                    .fontWeight(.semibold)
+        HStack(spacing: DesignSystem.Spacing.xl) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                Text("History")
+                    .font(DesignSystem.Typography.title1)
+                    .foregroundColor(.primary)
                 
-                Text(UICopy.History.subtitle)
-                    .font(.caption)
+                Text("View and undo past file operations")
+                    .font(DesignSystem.Typography.caption)
                     .foregroundColor(.secondary)
             }
             
             Spacer()
             
             if !appState.historyManager.sessions.isEmpty {
-                // Stats
-                HStack(spacing: 16) {
-                    StatBadge(
+                HStack(spacing: DesignSystem.Spacing.md) {
+                    ModernQuickStat(
                         value: "\(appState.historyManager.sessions.count)",
-                        label: "sessions"
+                        label: "sessions",
+                        icon: "clock.fill",
+                        color: DesignSystem.Colors.accentOrange
                     )
-                    StatBadge(
+                    
+                    ModernQuickStat(
                         value: "\(totalItems)",
-                        label: "operations"
+                        label: "files processed",
+                        icon: "doc.fill",
+                        color: DesignSystem.Colors.accentBlue
                     )
+                    
+                    Button(UICopy.History.clearAllButton) {
+                        showClearConfirmation = true
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .foregroundColor(.red)
                 }
-                
-                Button(UICopy.History.clearAllButton) {
-                    showClearConfirmation = true
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.red)
             }
         }
-        .padding(20)
-        .background(Color(NSColor.windowBackgroundColor))
+        .padding(DesignSystem.Spacing.xl)
+        .background(DesignSystem.Colors.backgroundPrimary)
     }
     
     private var totalItems: Int {
@@ -584,22 +588,12 @@ struct HistoryHeaderView: View {
 
 struct HistoryEmptyStateView: View {
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 64))
-                .foregroundColor(.secondary.opacity(0.5))
-            
-            Text(UICopy.History.emptyTitle)
-                .font(.title3)
-                .fontWeight(.medium)
-            
-            Text(UICopy.History.emptyBody)
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 300)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ModernEmptyState(
+            icon: "clock.arrow.circlepath",
+            title: "No History Yet",
+            description: "Actions you perform will appear here. You'll see what happened, when, and where files are now.",
+            color: DesignSystem.Colors.accentOrange
+        )
     }
 }
 

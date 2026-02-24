@@ -33,23 +33,33 @@ struct OrganizeHeaderView: View {
     @ObservedObject var appState: AppState
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: DesignSystem.Spacing.xl) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text(UICopy.Header.organizeTitle)
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(DesignSystem.Typography.title1)
+                    .foregroundColor(.primary)
                 stalenessLabel
             }
             Spacer()
             if let result = appState.scanResult {
-                HStack(spacing: 16) {
-                    StatBadge(value: "\(result.files.count)", label: "files")
-                    StatBadge(value: "\(appState.rules.filter(\.isEnabled).count)", label: "active rules")
+                HStack(spacing: DesignSystem.Spacing.md) {
+                    ModernQuickStat(
+                        value: "\(result.files.count)",
+                        label: "files",
+                        icon: "doc.fill",
+                        color: DesignSystem.Colors.accentBlue
+                    )
+                    ModernQuickStat(
+                        value: "\(appState.rules.filter(\.isEnabled).count)",
+                        label: "active rules",
+                        icon: "list.bullet",
+                        color: DesignSystem.Colors.accentTeal
+                    )
                 }
             }
         }
-        .padding(20)
-        .background(Color(NSColor.windowBackgroundColor))
+        .padding(DesignSystem.Spacing.xl)
+        .background(DesignSystem.Colors.backgroundPrimary)
     }
     
     @ViewBuilder
@@ -58,20 +68,20 @@ struct OrganizeHeaderView: View {
             switch state.stalenessLevel {
             case .fresh:
                 Label(UICopy.Header.scanUpToDate, systemImage: "checkmark.circle.fill")
-                    .font(.caption)
+                    .font(DesignSystem.Typography.caption)
                     .foregroundColor(.green)
             case .possiblyStale:
                 Label(UICopy.Header.scanMayBeStale, systemImage: "clock.fill")
-                    .font(.caption)
+                    .font(DesignSystem.Typography.caption)
                     .foregroundColor(.orange)
             case .stale:
                 Label(UICopy.Header.scanRecommended, systemImage: "arrow.clockwise.circle.fill")
-                    .font(.caption)
+                    .font(DesignSystem.Typography.caption)
                     .foregroundColor(.orange)
             }
         } else {
             Text(UICopy.Header.noScanYet)
-                .font(.caption)
+                .font(DesignSystem.Typography.caption)
                 .foregroundColor(.secondary)
         }
     }
@@ -100,24 +110,11 @@ struct StatBadge: View {
 
 struct EmptyFolderStateView: View {
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "folder.badge.questionmark")
-                .font(.system(size: 64))
-                .foregroundColor(.secondary.opacity(0.5))
-            Text(UICopy.EmptyState.noFolderTitle)
-                .font(.title3)
-                .fontWeight(.medium)
-            Text(UICopy.EmptyState.noFolderBody)
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 300)
-            Text(UICopy.EmptyState.nothingWillHappen)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.top, 8)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ModernEmptyState(
+            icon: "folder.badge.questionmark",
+            title: UICopy.EmptyState.noFolderTitle,
+            description: UICopy.EmptyState.noFolderBody
+        )
     }
 }
 
@@ -327,35 +324,34 @@ struct PlanPreviewView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                         Text(UICopy.Plan.title)
-                            .font(.title2)
-                            .fontWeight(.semibold)
+                            .font(DesignSystem.Typography.title2)
+                            .foregroundColor(.primary)
                         Text(UICopy.Plan.reassurance)
-                            .font(.subheadline)
+                            .font(DesignSystem.Typography.body)
                             .foregroundColor(.secondary)
                     }
                     Spacer()
                     PlanSummaryBadges(plan: plan)
                 }
                 
-                HStack(spacing: 12) {
+                HStack(spacing: DesignSystem.Spacing.md) {
                     Button(UICopy.Plan.cancelButton) { appState.actionPlan = nil }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(SecondaryButtonStyle())
                         .controlSize(.large)
                     Spacer()
                     Button { executePlan() } label: {
                         Label(UICopy.Plan.approveButton, systemImage: "checkmark.circle.fill")
-                            .padding(.horizontal, 8)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(PrimaryButtonStyle())
                     .controlSize(.large)
                 }
             }
-            .padding(20)
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding(DesignSystem.Spacing.xl)
+            .background(DesignSystem.Colors.backgroundPrimary)
             
             Divider()
             
@@ -429,23 +425,23 @@ struct PlannedActionRowView: View {
     let action: PlannedAction
     
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: DesignSystem.Spacing.md) {
             FileThumbnailView(file: action.targetFile, size: 44, showPreviewOnTap: true)
             actionIcon
             
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                HStack(spacing: DesignSystem.Spacing.sm) {
                     Text(action.targetFile.fileName)
-                        .font(.headline)
+                        .fontWeight(.medium)
                         .lineLimit(1)
                     destinationTag
                 }
-                HStack(spacing: 4) {
+                HStack(spacing: DesignSystem.Spacing.xs) {
                     Image(systemName: "lightbulb.fill")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     Text(UICopy.Plan.reason(action.reason))
-                        .font(.subheadline)
+                        .font(DesignSystem.Typography.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(2)
                 }
@@ -453,10 +449,9 @@ struct PlannedActionRowView: View {
             
             Spacer()
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-        .cornerRadius(12)
+        .padding(DesignSystem.Spacing.md)
+        .background(DesignSystem.Colors.cardBackground)
+        .cornerRadius(DesignSystem.CornerRadius.md)
     }
     
     @ViewBuilder
