@@ -6,102 +6,121 @@ struct RulesView: View {
     @ObservedObject var appState: AppState
     @State private var showingAddRule = false
     @State private var editingRule: Rule?
-    @State private var showingTemplates = false
+    @State private var isDropTargeted = false
+    @State private var prefillData: PrefillData?
     
     var body: some View {
         VStack(spacing: 0) {
-            ModernRulesHeader(
-                appState: appState,
-                showingAddRule: $showingAddRule,
-                showingTemplates: $showingTemplates
-            )
-            
+            RulesHeaderView(appState: appState, showingAddRule: $showingAddRule)
             Divider()
-            
             if appState.filteredRules.isEmpty {
                 if appState.rules.isEmpty {
-                    ModernEmptyState(
-                        icon: "list.bullet.rectangle",
-                        title: "No Rules Yet",
-                        description: "Rules define how files are organized. Add your first rule to get started.",
-                        action: ("Add First Rule", { showingAddRule = true })
-                    )
+                    EmptyRulesView(isDropTargeted: $isDropTargeted, onDrop: handleDrop)
                 } else {
-                    ModernEmptyState(
-                        icon: "magnifyingglass",
-                        title: "No Matching Rules",
-                        description: "Try adjusting your search or filter criteria."
-                    )
+                    NoMatchingRulesView()
                 }
             } else {
-                ModernRulesList(appState: appState, editingRule: $editingRule)
+                List {
+                    let groupedRules = Dictionary(grouping: appState.filteredRules) { $0.group ?? "Ungrouped" }
+                    let sortedGroups = groupedRules.keys.sorted()
+                    ForEach(sortedGroups, id: \.self) { group in
+                        Section(header: Text(group).font(.headline).foregroundColor(.secondary)) {
+                            ForEach(groupedRules[group] ?? []) { rule in
+                                RuleRowView(rule: rule, appState: appState, onEdit: {
+                                    editingRule = rule
+                                })
+                            }
+                            .onDelete { indexSet in
+                                let rulesInGroup = groupedRules[group] ?? []
+                                let rulesToDelete = indexSet.map { rulesInGroup[$0] }
+                                appState.rules.removeAll { rule in
+                                    rulesToDelete.contains { $0.id == rule.id }
+                                }
+                            }
+                        }
+                    }
+                }
+                .listStyle(.inset)
+                .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+                    handleDrop(providers: providers)
+                    return true
+                }
             }
         }
-        .background(DesignSystem.Colors.backgroundTertiary)
+        .background(Color(NSColor.textBackgroundColor))
         .sheet(isPresented: $showingAddRule) {
-            RuleEditorView(appState: appState, existingRule: nil)
+            RuleEditorView(appState: appState, existingRule: nil, prefillData: prefillData)
         }
         .sheet(item: $editingRule) { rule in
             RuleEditorView(appState: appState, existingRule: rule)
         }
-        .sheet(isPresented: $showingTemplates) {
-            TemplateBrowserView(appState: appState)
+    }
+    
+    private func handleDrop(providers: [NSItemProvider]) {
+        for provider in providers {
+            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
+                if let data = item as? Data,
+                   let url = URL(dataRepresentation: data, relativeTo: nil) {
+                    DispatchQueue.main.async {
+                        var prefill = PrefillData()
+                        prefill.fileExtension = url.pathExtension.lowercased()
+                        prefill.fileName = url.lastPathComponent
+                        
+                        let home = NSHomeDirectory()
+                        let documentsPath = home + "/Documents/"
+                        let extFolder = prefill.fileExtension.isEmpty ? "Others" : prefill.fileExtension.uppercased()
+                        prefill.suggestedDestination = documentsPath + extFolder
+                        
+                        self.prefillData = prefill
+                        self.showingAddRule = true
+                    }
+                }
+            }
         }
     }
 }
 
-struct ModernRulesHeader: View {
+struct RulesHeaderView: View {
     @ObservedObject var appState: AppState
     @Binding var showingAddRule: Bool
-    @Binding var showingTemplates: Bool
+    @State private var showingTemplates = false
     
     var body: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            HStack(spacing: DesignSystem.Spacing.xl) {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    Text("Rules")
-                        .font(DesignSystem.Typography.title1)
-                        .foregroundColor(.primary)
-                    
-                    Text("\(appState.rules.filter(\.isEnabled).count) of \(appState.rules.count) rules active")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(.secondary)
+        VStack(spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(UICopy.Rules.title).font(.title2).fontWeight(.semibold)
+                    Text(UICopy.Rules.subtitle).font(.caption).foregroundColor(.secondary)
                 }
-                
                 Spacer()
-                
-                HStack(spacing: DesignSystem.Spacing.md) {
-                    Button { appState.disableAllRules() } label: {
-                        Label("Disable All", systemImage: "pause.circle")
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .disabled(appState.rules.isEmpty)
-                    
-                    Button { appState.enableAllRules() } label: {
-                        Label("Enable All", systemImage: "play.circle")
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .disabled(appState.rules.isEmpty)
-                    
-                    Button(action: { showingTemplates = true }) {
+                HStack(spacing: 8) {
+                    Button { showingTemplates = true } label: {
                         Label("Templates", systemImage: "doc.text.magnifyingglass")
                     }
-                    .buttonStyle(SecondaryButtonStyle())
-                    
-                    Button(action: { showingAddRule = true }) {
-                        Label("Add Rule", systemImage: "plus")
+                    .buttonStyle(.bordered)
+                    Button { showingAddRule = true } label: {
+                        Label(UICopy.Rules.addButton, systemImage: "plus")
                     }
-                    .buttonStyle(PrimaryButtonStyle())
+                    .buttonStyle(.borderedProminent)
                 }
             }
-            
-            HStack(spacing: DesignSystem.Spacing.md) {
-                ModernSearchField(
-                    text: $appState.ruleSearchText,
-                    placeholder: "Search rules..."
-                )
-                .frame(maxWidth: 300)
-                
+            .sheet(isPresented: $showingTemplates) {
+                TemplateBrowserView(appState: appState)
+            }
+            HStack(spacing: 12) {
+                HStack {
+                    Image(systemName: "magnifyingglass").foregroundColor(.secondary)
+                    TextField("Search rules...", text: $appState.ruleSearchText).textFieldStyle(.plain)
+                    if !appState.ruleSearchText.isEmpty {
+                        Button { appState.ruleSearchText = "" } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(8)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
                 if !appState.ruleGroups.isEmpty {
                     Picker("Group", selection: $appState.selectedRuleGroup) {
                         Text("All Groups").tag(nil as String?)
@@ -112,131 +131,14 @@ struct ModernRulesHeader: View {
                     .pickerStyle(.menu)
                     .frame(width: 150)
                 }
-                
                 Spacer()
-                
                 Text("\(appState.filteredRules.count) of \(appState.rules.count)")
-                    .font(DesignSystem.Typography.caption)
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
-        .padding(DesignSystem.Spacing.xl)
-        .background(DesignSystem.Colors.backgroundPrimary)
-    }
-}
-
-struct ModernRulesList: View {
-    @ObservedObject var appState: AppState
-    @Binding var editingRule: Rule?
-    
-    var body: some View {
-        ScrollView {
-            LazyVStack(spacing: DesignSystem.Spacing.md) {
-                let groupedRules = Dictionary(grouping: appState.filteredRules) { $0.group ?? "Ungrouped" }
-                let sortedGroups = groupedRules.keys.sorted()
-                
-                ForEach(sortedGroups, id: \.self) { group in
-                    Section {
-                        ForEach(groupedRules[group] ?? []) { rule in
-                            ModernRuleRow(
-                                rule: rule,
-                                appState: appState,
-                                onEdit: { editingRule = rule }
-                            )
-                            .padding(.horizontal, DesignSystem.Spacing.xl)
-                        }
-                        .onDelete { indexSet in
-                            let rulesInGroup = groupedRules[group] ?? []
-                            let rulesToDelete = indexSet.map { rulesInGroup[$0] }
-                            appState.rules.removeAll { rule in
-                                rulesToDelete.contains { $0.id == rule.id }
-                            }
-                        }
-                    } header: {
-                        Text(group)
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, DesignSystem.Spacing.xl)
-                            .padding(.vertical, DesignSystem.Spacing.sm)
-                            .background(DesignSystem.Colors.backgroundTertiary)
-                    }
-                }
-            }
-            .padding(.vertical, DesignSystem.Spacing.md)
-        }
-    }
-}
-
-struct ModernRuleRow: View {
-    let rule: Rule
-    @ObservedObject var appState: AppState
-    let onEdit: () -> Void
-    
-    var body: some View {
-        HStack(spacing: DesignSystem.Spacing.md) {
-            Toggle("", isOn: Binding(
-                get: { rule.isEnabled },
-                set: { newValue in
-                    if let index = appState.rules.firstIndex(where: { $0.id == rule.id }) {
-                        appState.rules[index] = Rule(
-                            id: rule.id, name: rule.name, description: rule.description,
-                            conditions: rule.conditions, outcome: rule.outcome,
-                            isEnabled: newValue, group: rule.group, tags: rule.tags
-                        )
-                    }
-                }
-            ))
-            .labelsHidden()
-            .toggleStyle(.switch)
-            
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                HStack {
-                    Text(rule.name)
-                        .fontWeight(.medium)
-                    if !rule.isEnabled {
-                        Text("Disabled")
-                            .font(.caption2)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Color.secondary.opacity(0.2)).cornerRadius(4)
-                    }
-                    if !rule.tags.isEmpty {
-                        HStack(spacing: 4) {
-                            ForEach(rule.tags.prefix(3), id: \.self) { tag in
-                                Text(tag)
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(DesignSystem.Colors.accentBlue.opacity(0.1))
-                                    .foregroundColor(DesignSystem.Colors.accentBlue)
-                                    .cornerRadius(4)
-                            }
-                        }
-                    }
-                }
-                Text(rule.description)
-                    .font(DesignSystem.Typography.captionSmall)
-                    .foregroundColor(.secondary)
-                
-                HStack(spacing: 8) {
-                    ForEach(Array(rule.conditions.enumerated()), id: \.offset) { _, condition in
-                        ConditionBadge(condition: condition)
-                    }
-                    Text("→").foregroundColor(.secondary)
-                    OutcomeBadge(outcome: rule.outcome)
-                }
-                .font(.caption2)
-            }
-            
-            Spacer()
-            
-            Button("Edit") { onEdit() }
-                .buttonStyle(SecondaryButtonStyle())
-                .controlSize(.small)
-        }
-        .padding(DesignSystem.Spacing.md)
-        .background(DesignSystem.Colors.cardBackground)
-        .cornerRadius(DesignSystem.CornerRadius.md)
-        .opacity(rule.isEnabled ? 1 : 0.6)
+        .padding(20)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -252,13 +154,44 @@ struct NoMatchingRulesView: View {
 }
 
 struct EmptyRulesView: View {
+    @Binding var isDropTargeted: Bool
+    var onDrop: ([NSItemProvider]) -> Void
+    
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "list.bullet.rectangle").font(.system(size: 48)).foregroundColor(.secondary.opacity(0.5))
             Text(UICopy.Rules.emptyTitle).font(.title3).fontWeight(.medium)
             Text(UICopy.Rules.emptyBody).font(.body).foregroundColor(.secondary).multilineTextAlignment(.center)
+            
+            Divider()
+                .frame(width: 200)
+                .padding(.vertical, 20)
+            
+            VStack(spacing: 12) {
+                Image(systemName: "arrow.down.doc")
+                    .font(.system(size: 32))
+                    .foregroundColor(isDropTargeted ? .accentColor : .secondary.opacity(0.5))
+                
+                Text("Drop files here to create rules")
+                    .font(.subheadline)
+                    .foregroundColor(isDropTargeted ? .accentColor : .secondary)
+            }
+            .padding(30)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(
+                        isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.3),
+                        style: StrokeStyle(lineWidth: 2, dash: [8])
+                    )
+            )
+            .scaleEffect(isDropTargeted ? 1.05 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: isDropTargeted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+            onDrop(providers)
+            return true
+        }
     }
 }
 
@@ -367,9 +300,16 @@ struct OutcomeBadge: View {
     }
 }
 
+struct PrefillData {
+    var fileExtension: String = ""
+    var fileName: String = ""
+    var suggestedDestination: String = ""
+}
+
 struct RuleEditorView: View {
     @ObservedObject var appState: AppState
     let existingRule: Rule?
+    var prefillData: PrefillData?
     @Environment(\.dismiss) private var dismiss
     @State private var name: String = ""
     @State private var description: String = ""
