@@ -439,29 +439,29 @@ struct SidebarView: View {
                 .tag(tab)
         }
         .listStyle(.sidebar)
-        .frame(minWidth: 180)
+        .frame(minWidth: 200)
         .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 12) {
+            VStack(spacing: DesignSystem.Spacing.md) {
                 Divider()
                 
-                // Folder selector
                 if let url = appState.selectedFolderURL {
                     HStack {
                         Image(systemName: "folder.fill")
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(DesignSystem.Colors.accentBlue)
                         Text(url.lastPathComponent)
                             .lineLimit(1)
                             .truncationMode(.middle)
+                        Spacer()
                     }
-                    .font(.caption)
-                    .padding(.horizontal, 12)
+                    .font(DesignSystem.Typography.caption)
+                    .padding(.horizontal, DesignSystem.Spacing.md)
                 }
                 
                 FolderSelectorButton(appState: appState)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 12)
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .padding(.bottom, DesignSystem.Spacing.md)
             }
-            .background(Color(NSColor.windowBackgroundColor))
+            .background(DesignSystem.Colors.backgroundPrimary)
         }
     }
 }
@@ -540,41 +540,45 @@ struct HistoryHeaderView: View {
     @Binding var showClearConfirmation: Bool
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(UICopy.History.title)
-                    .font(.title2)
-                    .fontWeight(.semibold)
+        HStack(spacing: DesignSystem.Spacing.xl) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                Text("History")
+                    .font(DesignSystem.Typography.title1)
+                    .foregroundColor(.primary)
                 
-                Text(UICopy.History.subtitle)
-                    .font(.caption)
+                Text("View and undo past file operations")
+                    .font(DesignSystem.Typography.caption)
                     .foregroundColor(.secondary)
             }
             
             Spacer()
             
             if !appState.historyManager.sessions.isEmpty {
-                // Stats
-                HStack(spacing: 16) {
-                    StatBadge(
+                HStack(spacing: DesignSystem.Spacing.md) {
+                    ModernQuickStat(
                         value: "\(appState.historyManager.sessions.count)",
-                        label: "sessions"
+                        label: "sessions",
+                        icon: "clock.fill",
+                        color: DesignSystem.Colors.accentOrange
                     )
-                    StatBadge(
+                    
+                    ModernQuickStat(
                         value: "\(totalItems)",
-                        label: "operations"
+                        label: "files processed",
+                        icon: "doc.fill",
+                        color: DesignSystem.Colors.accentBlue
                     )
+                    
+                    Button(UICopy.History.clearAllButton) {
+                        showClearConfirmation = true
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .foregroundColor(.red)
                 }
-                
-                Button(UICopy.History.clearAllButton) {
-                    showClearConfirmation = true
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.red)
             }
         }
-        .padding(20)
-        .background(Color(NSColor.windowBackgroundColor))
+        .padding(DesignSystem.Spacing.xl)
+        .background(DesignSystem.Colors.backgroundPrimary)
     }
     
     private var totalItems: Int {
@@ -584,22 +588,12 @@ struct HistoryHeaderView: View {
 
 struct HistoryEmptyStateView: View {
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 64))
-                .foregroundColor(.secondary.opacity(0.5))
-            
-            Text(UICopy.History.emptyTitle)
-                .font(.title3)
-                .fontWeight(.medium)
-            
-            Text(UICopy.History.emptyBody)
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 300)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ModernEmptyState(
+            icon: "clock.arrow.circlepath",
+            title: "No History Yet",
+            description: "Actions you perform will appear here. You'll see what happened, when, and where files are now.",
+            color: DesignSystem.Colors.accentOrange
+        )
     }
 }
 
@@ -1195,56 +1189,36 @@ struct GlobalSearchView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: DesignSystem.Spacing.xl) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Search")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                        .font(DesignSystem.Typography.title1)
+                        .foregroundColor(.primary)
                     
                     Text("Search across files, rules, and history")
-                        .font(.caption)
+                        .font(DesignSystem.Typography.caption)
                         .foregroundColor(.secondary)
                 }
                 
                 Spacer()
             }
-            .padding(20)
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding(DesignSystem.Spacing.xl)
+            .background(DesignSystem.Colors.backgroundPrimary)
             
             Divider()
             
-            // Search Bar
-            VStack(spacing: 12) {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    
-                    TextField("Search files, rules, history...", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .onChange(of: searchText) { newValue in
-                            appState.searchManager.search(query: newValue)
-                        }
-                    
-                    if !searchText.isEmpty {
-                        Button {
-                            searchText = ""
-                            appState.searchManager.clearSearch()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
+            VStack(spacing: DesignSystem.Spacing.md) {
+                ModernSearchField(
+                    text: $searchText,
+                    placeholder: "Search files, rules, history..."
+                )
+                .onChange(of: searchText) { newValue in
+                    appState.searchManager.search(query: newValue)
                 }
-                .padding(12)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
                 
-                // Filter chips
-                HStack(spacing: 8) {
+                HStack(spacing: DesignSystem.Spacing.sm) {
                     ForEach(SearchableItemType.allCases, id: \.self) { type in
-                        FilterChip(
+                        ModernFilterChip(
                             title: type.rawValue,
                             isSelected: appState.searchManager.selectedTypes.contains(type)
                         ) {
@@ -1253,7 +1227,6 @@ struct GlobalSearchView: View {
                             } else {
                                 appState.searchManager.selectedTypes.insert(type)
                             }
-                            // Re-run search with new filters
                             if !searchText.isEmpty {
                                 appState.searchManager.search(query: searchText)
                             }
@@ -1263,16 +1236,23 @@ struct GlobalSearchView: View {
                     Spacer()
                 }
             }
-            .padding()
+            .padding(DesignSystem.Spacing.xl)
             
             Divider()
             
-            // Results
             if appState.searchManager.searchResults.isEmpty {
                 if searchText.isEmpty {
-                    SearchEmptyStateView()
+                    ModernEmptyState(
+                        icon: "magnifyingglass",
+                        title: "Start Searching",
+                        description: "Type above to search across files, rules, and history."
+                    )
                 } else {
-                    NoSearchResultsView()
+                    ModernEmptyState(
+                        icon: "magnifyingglass.circle",
+                        title: "No Results Found",
+                        description: "Try adjusting your search terms or filters."
+                    )
                 }
             } else {
                 SearchResultsList(
@@ -1284,9 +1264,8 @@ struct GlobalSearchView: View {
                 )
             }
         }
-        .background(Color(NSColor.textBackgroundColor))
+        .background(DesignSystem.Colors.backgroundTertiary)
         .onAppear {
-            // Update search manager with current data
             appState.searchManager.updateData(
                 files: appState.scanResult?.files ?? [],
                 rules: appState.rules,
@@ -1436,52 +1415,46 @@ struct StatisticsDashboardView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: DesignSystem.Spacing.xl) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Statistics")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                        .font(DesignSystem.Typography.title1)
+                        .foregroundColor(.primary)
                     
                     Text("Track rule effectiveness and file patterns")
-                        .font(.caption)
+                        .font(DesignSystem.Typography.caption)
                         .foregroundColor(.secondary)
                 }
                 
                 Spacer()
             }
-            .padding(20)
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding(DesignSystem.Spacing.xl)
+            .background(DesignSystem.Colors.backgroundPrimary)
             
             Divider()
             
-            // Stats Content
             ScrollView {
-                VStack(spacing: 20) {
-                    // Summary Cards
+                VStack(spacing: DesignSystem.Spacing.xl) {
                     StatisticsSummaryCards(appState: appState)
                     
                     Divider()
                     
-                    // File Types Breakdown
                     if let scanResult = appState.scanResult {
                         FileTypesChart(files: scanResult.files)
                     }
                     
                     Divider()
                     
-                    // Rule Performance
                     RulePerformanceSection(rules: appState.rules, history: appState.historyManager.sessions)
                     
                     Divider()
                     
-                    // Recent Activity
                     RecentActivitySection(history: appState.historyManager.sessions)
                 }
-                .padding()
+                .padding(DesignSystem.Spacing.xl)
             }
         }
-        .background(Color(NSColor.textBackgroundColor))
+        .background(DesignSystem.Colors.backgroundTertiary)
     }
 }
 
