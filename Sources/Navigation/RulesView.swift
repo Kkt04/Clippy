@@ -94,6 +94,22 @@ struct RulesHeaderView: View {
                 }
                 Spacer()
                 HStack(spacing: 8) {
+                    Button { 
+                        let enabledCount = appState.rules.filter(\.isEnabled).count
+                        if enabledCount == appState.rules.count {
+                            appState.disableAllRules()
+                        } else {
+                            appState.enableAllRules()
+                        }
+                    } label: {
+                        let enabledCount = appState.rules.filter(\.isEnabled).count
+                        Label(
+                            enabledCount == appState.rules.count ? "Disable All" : "Enable All",
+                            systemImage: enabledCount == appState.rules.count ? "checkmark.circle.slash" : "checkmark.circle"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    
                     Button { showingTemplates = true } label: {
                         Label("Templates", systemImage: "doc.text.magnifyingglass")
                     }
