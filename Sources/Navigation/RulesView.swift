@@ -20,30 +20,33 @@ struct RulesView: View {
                     NoMatchingRulesView()
                 }
             } else {
-                List {
-                    let groupedRules = Dictionary(grouping: appState.filteredRules) { $0.group ?? "Ungrouped" }
-                    let sortedGroups = groupedRules.keys.sorted()
-                    ForEach(sortedGroups, id: \.self) { group in
-                        Section(header: Text(group).font(.headline).foregroundColor(.secondary)) {
-                            ForEach(groupedRules[group] ?? []) { rule in
-                                RuleRowView(rule: rule, appState: appState, onEdit: {
-                                    editingRule = rule
-                                })
-                            }
-                            .onDelete { indexSet in
-                                let rulesInGroup = groupedRules[group] ?? []
-                                let rulesToDelete = indexSet.map { rulesInGroup[$0] }
-                                appState.rules.removeAll { rule in
-                                    rulesToDelete.contains { $0.id == rule.id }
+                VStack(spacing: 0) {
+                    dropHintBanner
+                    List {
+                        let groupedRules = Dictionary(grouping: appState.filteredRules) { $0.group ?? "Ungrouped" }
+                        let sortedGroups = groupedRules.keys.sorted()
+                        ForEach(sortedGroups, id: \.self) { group in
+                            Section(header: Text(group).font(.headline).foregroundColor(.secondary)) {
+                                ForEach(groupedRules[group] ?? []) { rule in
+                                    RuleRowView(rule: rule, appState: appState, onEdit: {
+                                        editingRule = rule
+                                    })
+                                }
+                                .onDelete { indexSet in
+                                    let rulesInGroup = groupedRules[group] ?? []
+                                    let rulesToDelete = indexSet.map { rulesInGroup[$0] }
+                                    appState.rules.removeAll { rule in
+                                        rulesToDelete.contains { $0.id == rule.id }
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                .listStyle(.inset)
-                .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-                    handleDrop(providers: providers)
-                    return true
+                    .listStyle(.inset)
+                    .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+                        handleDrop(providers: providers)
+                        return true
+                    }
                 }
             }
         }
@@ -77,6 +80,24 @@ struct RulesView: View {
                 }
             }
         }
+    }
+    
+    @ViewBuilder
+    private var dropHintBanner: some View {
+        HStack {
+            Image(systemName: "arrow.down.doc")
+                .foregroundColor(isDropTargeted ? .white : .accentColor)
+            Text(isDropTargeted ? "Drop to create rule!" : "Drop a file here to create a rule")
+                .font(.caption)
+                .foregroundColor(isDropTargeted ? .white : .secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(isDropTargeted ? Color.accentColor : Color.accentColor.opacity(0.1))
+        .cornerRadius(8)
+        .padding(12)
+        .animation(.easeInOut(duration: 0.2), value: isDropTargeted)
     }
 }
 
