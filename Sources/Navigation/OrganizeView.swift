@@ -28,6 +28,9 @@ struct OrganizeView: View {
             }
         }
         .background(Color(NSColor.textBackgroundColor))
+        .sheet(isPresented: $appState.showDuplicates) {
+            DuplicatesView(appState: appState)
+        }
     }
     
     @ViewBuilder
@@ -724,12 +727,11 @@ struct ExecutionResultsView: View {
                         Button(UICopy.Execution.doneButton) {
                             appState.executionLog = nil
                             appState.scanResult = nil
-                        }.buttonStyle(.borderedProminent)
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
                 }
             }
-            .padding(16)
-            .background(Color(NSColor.windowBackgroundColor))
             Divider()
             List {
                 ForEach(log.entries, id: \.actionId) { entry in
@@ -765,6 +767,74 @@ struct ExecutionResultsView: View {
                 appState.isExecuting = false
             }
         }
+    }
+}
+
+struct DuplicatesView: View {
+    @ObservedObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Duplicate Files")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    Text("\(appState.duplicateGroups.count) groups found")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Button("Close") { dismiss() }
+                    .keyboardShortcut(.escape)
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            Divider()
+            
+            if appState.duplicateGroups.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary.opacity(0.5))
+                    Text("No duplicates found")
+                        .font(.headline)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(Array(appState.duplicateGroups.enumerated()), id: \.offset) { index, group in
+                        Section(header: Text("Group \(index + 1) - \(group.count) files").font(.headline)) {
+                            ForEach(group) { file in
+                                HStack(spacing: 12) {
+                                    FileThumbnailView(file: file, size: 40, showPreviewOnTap: true)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(file.fileName)
+                                            .fontWeight(.medium)
+                                        Text(file.fileURL.deletingLastPathComponent().path)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                        if let size = file.fileSize {
+                                            Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                }
+                .listStyle(.inset)
+            }
+        }
+        .frame(width: 700, height: 500)
     }
 }
 
