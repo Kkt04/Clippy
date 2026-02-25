@@ -1,12 +1,14 @@
 import SwiftUI
 import ClippyCore
 import ClippyEngine
+import CryptoKit
 
 struct OrganizeView: View {
     @ObservedObject var appState: AppState
     
     var body: some View {
         VStack(spacing: 0) {
+            quickActionsToolbar
             OrganizeHeaderView(appState: appState)
             Divider()
             if appState.selectedFolderURL == nil {
@@ -26,6 +28,167 @@ struct OrganizeView: View {
             }
         }
         .background(Color(NSColor.textBackgroundColor))
+        .sheet(isPresented: $appState.showDuplicates) {
+            DuplicatesView(appState: appState)
+        }
+    }
+    
+    @ViewBuilder
+    private var quickActionsToolbar: some View {
+        HStack(spacing: 12) {
+            Button {
+                startScan()
+            } label: {
+                Label("Scan", systemImage: "magnifyingglass")
+            }
+            .disabled(appState.selectedFolderURL == nil || appState.isScanning || appState.isExecuting)
+            
+            Divider()
+                .frame(height: 20)
+            
+            Button {
+                createPlan()
+            } label: {
+                Label("Create Plan", systemImage: "list.bullet.rectangle")
+            }
+            .disabled(appState.scanResult == nil || appState.actionPlan != nil)
+            
+            Button {
+                executePlan()
+            } label: {
+                Label("Execute", systemImage: "play.fill")
+            }
+            .disabled(appState.actionPlan == nil || appState.isExecuting)
+            .buttonStyle(.borderedProminent)
+            
+            Button {
+                performUndo()
+            } label: {
+                Label("Undo", systemImage: "arrow.uturn.backward")
+            }
+            .disabled(appState.executionLog == nil)
+            
+            Spacer()
+            
+            if appState.duplicateGroups.count > 1 {
+                Button {
+                    appState.showDuplicates = true
+                } label: {
+                    Label("Duplicates (\(appState.duplicateGroups.count))", systemImage: "doc.on.doc.fill")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+    
+    private func startScan() {
+        guard let url = appState.selectedFolderURL else { return }
+        appState.isScanning = true
+        appState.scanResult = nil
+        appState.actionPlan = nil
+        appState.executionLog = nil
+        appState.scanProgress = nil
+        Task {
+            let result = await appState.scanner.scan(folderURL: url) { progress in
+                Task { @MainActor in
+                    appState.scanProgress = progress
+                }
+            }
+            await MainActor.run {
+                appState.scanResult = result
+                appState.isScanning = false
+                appState.scanProgress = nil
+                appState.scanBridge.markScanCompleted(for: url)
+                appState.stalenessState = appState.scanBridge.staleness(for: url)
+                appState.searchManager.updateData(files: result.files, rules: appState.rules, history: appState.historyManager.sessions)
+                if !result.wasCancelled {
+                    Task { await detectDuplicates(from: result.files) }
+                }
+            }
+        }
+    }
+    
+    private func detectDuplicates(from files: [FileDescriptor]) async {
+        let sizeGroups = Dictionary(grouping: files) { $0.fileSize }
+        var duplicates: [[FileDescriptor]] = []
+        for (_, group) in sizeGroups where group.count > 1 {
+            if group.count > 1 {
+                let hashGroups = await hashBasedGrouping(files: group)
+                for (_, sameHashFiles) in hashGroups where sameHashFiles.count > 1 {
+                    duplicates.append(sameHashFiles)
+                }
+            }
+        }
+        await MainActor.run {
+            appState.duplicateGroups = duplicates
+        }
+    }
+    
+    private func hashBasedGrouping(files: [FileDescriptor]) async -> [String: [FileDescriptor]] {
+        var groups: [String: [FileDescriptor]] = [:]
+        
+        for file in files {
+            if let hash = computeFileHash(file.fileURL) {
+                groups[hash, default: []].append(file)
+            }
+        }
+        
+        return groups
+    }
+    
+    private func computeFileHash(_ url: URL) -> String? {
+        guard let fileHandle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? fileHandle.close() }
+        
+        let bufferSize = 1024 * 1024
+        var hasher = SHA256()
+        
+        while let data = try? fileHandle.read(upToCount: bufferSize), !data.isEmpty {
+            hasher.update(data: data)
+        }
+        
+        let digest = hasher.finalize()
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+    
+    private func createPlan() {
+        guard let result = appState.scanResult else { return }
+        let enabledRules = appState.rules.filter(\.isEnabled)
+        let plan = appState.planner.plan(files: result.files, rules: enabledRules)
+        appState.actionPlan = plan
+    }
+    
+    private func executePlan() {
+        guard let plan = appState.actionPlan else { return }
+        appState.isExecuting = true
+        let executor = appState.executor
+        let folderPath = appState.selectedFolderURL?.path ?? "Unknown"
+        DispatchQueue.global(qos: .userInitiated).async {
+            let log = executor.execute(plan: plan)
+            DispatchQueue.main.async {
+                appState.executionLog = log
+                appState.actionPlan = nil
+                appState.isExecuting = false
+                appState.historyManager.recordSession(from: log, folderPath: folderPath)
+            }
+        }
+    }
+    
+    private func performUndo() {
+        guard let log = appState.executionLog else { return }
+        appState.isExecuting = true
+        let undoEngine = appState.undoEngine
+        DispatchQueue.global(qos: .userInitiated).async {
+            let _ = undoEngine.undo(log: log)
+            DispatchQueue.main.async {
+                appState.executionLog = nil
+                appState.scanResult = nil
+                appState.isExecuting = false
+            }
+        }
     }
 }
 
@@ -564,12 +727,11 @@ struct ExecutionResultsView: View {
                         Button(UICopy.Execution.doneButton) {
                             appState.executionLog = nil
                             appState.scanResult = nil
-                        }.buttonStyle(.borderedProminent)
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
                 }
             }
-            .padding(16)
-            .background(Color(NSColor.windowBackgroundColor))
             Divider()
             List {
                 ForEach(log.entries, id: \.actionId) { entry in
@@ -605,6 +767,74 @@ struct ExecutionResultsView: View {
                 appState.isExecuting = false
             }
         }
+    }
+}
+
+struct DuplicatesView: View {
+    @ObservedObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Duplicate Files")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    Text("\(appState.duplicateGroups.count) groups found")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Button("Close") { dismiss() }
+                    .keyboardShortcut(.escape)
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            Divider()
+            
+            if appState.duplicateGroups.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary.opacity(0.5))
+                    Text("No duplicates found")
+                        .font(.headline)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(Array(appState.duplicateGroups.enumerated()), id: \.offset) { index, group in
+                        Section(header: Text("Group \(index + 1) - \(group.count) files").font(.headline)) {
+                            ForEach(group) { file in
+                                HStack(spacing: 12) {
+                                    FileThumbnailView(file: file, size: 40, showPreviewOnTap: true)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(file.fileName)
+                                            .fontWeight(.medium)
+                                        Text(file.fileURL.deletingLastPathComponent().path)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                        if let size = file.fileSize {
+                                            Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                }
+                .listStyle(.inset)
+            }
+        }
+        .frame(width: 700, height: 500)
     }
 }
 
